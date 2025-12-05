@@ -15,7 +15,15 @@ impl PlanetAI for AI {
         combinator: &Combinator,
         msg: OrchestratorToPlanet,
     ) -> Option<PlanetToOrchestrator> {
-        todo!()
+        match msg {
+            OrchestratorToPlanet::Sunray(sunray) => {}
+            OrchestratorToPlanet::Asteroid(_) => {}
+            OrchestratorToPlanet::StartPlanetAI => {}
+            OrchestratorToPlanet::StopPlanetAI => {}
+            OrchestratorToPlanet::InternalStateRequest => {}
+            OrchestratorToPlanet::IncomingExplorerRequest { .. } => {}
+            OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {}
+        }
     }
 
     fn handle_explorer_msg(
