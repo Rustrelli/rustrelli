@@ -1,11 +1,12 @@
 mod planet;
 
-use std::sync::mpsc;
+use planet::AI;
 use common_game::components::planet::{Planet, PlanetType};
+use common_game::components::resource::BasicResourceType;
 use common_game::protocols::messages;
-use crate::planet::AI;
+use std::sync::mpsc;
 
-/// Main function creation planet.
+/// Creation function for the planet.
 pub fn create_planet(
     rx_orchestrator: mpsc::Receiver<messages::OrchestratorToPlanet>,
     tx_orchestrator: mpsc::Sender<messages::PlanetToOrchestrator>,
@@ -13,13 +14,18 @@ pub fn create_planet(
 ) -> Planet {
     let id = 1;
     let ai = AI {};
-    let gen_rules = vec![/* your recipes */];
-    let comb_rules = vec![/* your recipes */];
+    let gen_rules = vec![
+        BasicResourceType::Carbon,
+        BasicResourceType::Silicon,
+        BasicResourceType::Oxygen,
+        BasicResourceType::Hydrogen,
+    ];
+    let comb_rules = vec![];
 
-    // Construct the planet and return it
+    // Constructs the planet and returns it
     match Planet::new(
         id,
-        PlanetType::A,
+        PlanetType::D,
         Box::new(ai),
         gen_rules,
         comb_rules,
@@ -35,6 +41,5 @@ pub fn create_planet(
 mod tests {
     #[test]
     fn test() {
-
     }
 }
