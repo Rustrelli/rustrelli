@@ -2,5 +2,7 @@
 name = "rustrelli"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/Rustrelli/rustrelli.git"
 
 [dependencies]
+common = { git = "https://github.com/unitn-ap-2025/common.git"}
