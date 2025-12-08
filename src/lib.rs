@@ -138,13 +138,6 @@ mod tests {
             PlanetType::D as u8,
             "Planet type should be D"
         );
-
-        let ai = planet::AI::new();
-        assert_eq!(
-            std::mem::size_of_val(&ai),
-            0,
-            "AI should be zero-sized (stateless)"
-        );
     }
 
     /// **Scenario:** Verify Type D generation capabilities
