@@ -1,14 +1,19 @@
 use common_game::components::planet::{PlanetAI, PlanetState};
-use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, Generator};
+use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest, Generator, GenericResource};
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
-use std::collections::HashSet;
 
-// TODO: ADD LOGGING AND DOCS
+// TODO: Logging and docs
 
-pub(crate) struct AI {}
+// features:
+// - user of the planet can choose between: fair-share resource generation between explorers or
+//   explorers priority list to assign priority levels to each explorer -> planet tracks explorer requests to estimate resources usage
+// - [probably cheating by game rules] speculative resource generation to prevent sunray waste (all cells are full),
+//   based on generation requests history of specific explorers.
+
+pub struct AI {}
 
 impl PlanetAI for AI {
     fn handle_orchestrator_msg(
@@ -20,18 +25,19 @@ impl PlanetAI for AI {
     ) -> Option<PlanetToOrchestrator> {
         match msg {
             OrchestratorToPlanet::Sunray(sunray) => {
-                // generate resource on the fly and store them based
-                // on the request frequency (calculated on the number of times it's requested
-                // by explorers)
-                // todo!()
                 state.charge_cell(sunray);
                 Some(PlanetToOrchestrator::SunrayAck {
                     planet_id: state.id(),
                 })
             }
+
             OrchestratorToPlanet::InternalStateRequest => {
-                todo!()
+                Some(PlanetToOrchestrator::InternalStateResponse {
+                    planet_id: state.id(),
+                    planet_state: state.to_dummy(),
+                })
             }
+
             _ => None,
         }
     }
@@ -40,7 +46,7 @@ impl PlanetAI for AI {
         &mut self,
         state: &mut PlanetState,
         generator: &Generator,
-        _combinator: &Combinator,
+        combinator: &Combinator,
         msg: ExplorerToPlanet,
     ) -> Option<PlanetToExplorer> {
         match msg {
@@ -49,16 +55,18 @@ impl PlanetAI for AI {
                     resource_list: generator.all_available_recipes(),
                 })
             }
+
             ExplorerToPlanet::SupportedCombinationRequest { .. } => {
                 Some(PlanetToExplorer::SupportedCombinationResponse {
-                    combination_list: HashSet::new(),
+                    combination_list: combinator.all_available_recipes(),
                 })
             }
+
             ExplorerToPlanet::GenerateResourceRequest {
                 explorer_id,
                 resource,
             } => {
-                // TODO: check for stored resource (see Sunray response in handle_orchestrator_msg()
+                // TODO: check for stored resource (see Sunray response in handle_orchestrator_msg())
                 if let Some((cell, _)) = state.full_cell() {
                     let resource: BasicResource = match resource {
                         BasicResourceType::Oxygen => {
@@ -79,10 +87,22 @@ impl PlanetAI for AI {
                         resource: Some(resource),
                     })
                 } else {
-                    None
+                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
                 }
             }
-            ExplorerToPlanet::CombineResourceRequest { .. } => None,
+
+            ExplorerToPlanet::CombineResourceRequest { msg, .. } => {
+                let input_resources = extract_generic_resources(msg);
+
+                Some(PlanetToExplorer::CombineResourceResponse {
+                    complex_response: Err((
+                        "This planet type can't combine resources.".to_string(),
+                        input_resources.0,
+                        input_resources.1
+                    ))
+                })
+            },
+
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
                 Some(PlanetToExplorer::AvailableEnergyCellResponse {
                     available_cells: state.to_dummy().charged_cells_count as u32,
@@ -107,5 +127,41 @@ impl PlanetAI for AI {
 
     fn stop(&mut self, state: &PlanetState) {
         todo!()
+    }
+}
+
+impl AI {
+    pub fn new() -> Self {
+        AI {}
+    }
+}
+
+/// Constructs a pair of [GenericResource] containing the two resources used in `request`.
+fn extract_generic_resources(request: ComplexResourceRequest) -> (GenericResource, GenericResource) {
+    match request {
+        ComplexResourceRequest::Water(h, o) => (
+            GenericResource::BasicResources(BasicResource::Hydrogen(h)),
+            GenericResource::BasicResources(BasicResource::Oxygen(o))
+        ),
+        ComplexResourceRequest::Diamond(c1, c2) => (
+            GenericResource::BasicResources(BasicResource::Carbon(c1)),
+            GenericResource::BasicResources(BasicResource::Carbon(c2))
+        ),
+        ComplexResourceRequest::Life(w, c) => (
+            GenericResource::ComplexResources(ComplexResource::Water(w)),
+            GenericResource::BasicResources(BasicResource::Carbon(c))
+        ),
+        ComplexResourceRequest::Robot(s, l) => (
+            GenericResource::BasicResources(BasicResource::Silicon(s)),
+            GenericResource::ComplexResources(ComplexResource::Life(l))
+        ),
+        ComplexResourceRequest::Dolphin(w, l) => (
+            GenericResource::ComplexResources(ComplexResource::Water(w)),
+            GenericResource::ComplexResources(ComplexResource::Life(l))
+        ),
+        ComplexResourceRequest::AIPartner(r, d) => (
+            GenericResource::ComplexResources(ComplexResource::Robot(r)),
+            GenericResource::ComplexResources(ComplexResource::Diamond(d))
+        )
     }
 }
