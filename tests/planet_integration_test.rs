@@ -12,7 +12,7 @@ use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
-use rustrelli::create_planet;
+use rustrelli::{create_planet, ExplorerRequestLimit};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -31,7 +31,7 @@ fn setup_test_planet() -> (
     let (tx_planet_to_orch, rx_planet_to_orch) = mpsc::channel();
     let (tx_expl_to_planet, rx_expl_to_planet) = mpsc::channel();
 
-    let mut planet = create_planet(rx_orch_to_planet, tx_planet_to_orch, rx_expl_to_planet);
+    let mut planet = create_planet(rx_orch_to_planet, tx_planet_to_orch, rx_expl_to_planet, ExplorerRequestLimit::None);
 
     let handle = thread::spawn(move || {
         let _ = planet.run();

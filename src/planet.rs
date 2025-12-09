@@ -32,7 +32,7 @@ use common_game::protocols::messages::{
 };
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-
+use crate::ExplorerRequestLimit;
 // features:
 // - user of the planet can choose between: fair-share resource generation between explorers or
 //   explorers priority list to assign priority levels to each explorer -> planet tracks explorer requests to estimate resources usage
@@ -59,6 +59,7 @@ impl Default for StatsRecord {
 
 pub struct AI {
     explorer_stats: HashMap<u32, StatsRecord>,
+    limit_mode: ExplorerRequestLimit,
 }
 
 impl AI {
@@ -77,13 +78,15 @@ impl AI {
     ///
     /// # Examples
     /// ```
+    /// use rustrelli::ExplorerRequestLimit;
     /// use rustrelli::planet::AI;
     ///
-    /// let ai = AI::new();
+    /// let ai = AI::new(ExplorerRequestLimit::None);
     /// ```
-    pub fn new() -> Self {
+    pub fn new(limit_mode: ExplorerRequestLimit) -> Self {
         AI {
             explorer_stats: HashMap::new(),
+            limit_mode,
         }
     }
 
@@ -228,6 +231,15 @@ impl PlanetAI for AI {
                 resource,
             } => {
                 if let Some((cell, _)) = state.full_cell() {
+                    match self.limit_mode {
+                        ExplorerRequestLimit::None => {
+                            return Some(PlanetToExplorer::GenerateResourceResponse {
+                                resource: Some(make_basic_resource(resource, cell, generator))
+                            })
+                        }
+                        ExplorerRequestLimit::FairShare => {}
+                    }
+
                     // Add explorer_id entry to map if not already present
                     // then updates time of latest request.
                     self.explorer_stats
@@ -313,7 +325,7 @@ impl PlanetAI for AI {
 
 impl Default for AI {
     fn default() -> Self {
-        Self::new()
+        Self::new(ExplorerRequestLimit::None)
     }
 }
 

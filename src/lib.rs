@@ -7,13 +7,13 @@
 //! ## Example
 //! ```
 //! use std::sync::mpsc;
-//! use rustrelli::create_planet;
+//! use rustrelli::{create_planet, ExplorerRequestLimit};
 //!
 //! let (tx_orch, rx_orch) = mpsc::channel();
 //! let (tx_planet, rx_planet) = mpsc::channel();
 //! let (tx_expl, rx_expl) = mpsc::channel();
 //!
-//! let planet = create_planet(rx_orch, tx_planet, rx_expl);
+//! let planet = create_planet(rx_orch, tx_planet, rx_expl, ExplorerRequestLimit::None);
 //! ```
 
 pub mod planet;
@@ -38,6 +38,8 @@ use std::sync::mpsc;
 /// * `rx_orchestrator` - Receiver for messages from the orchestrator
 /// * `tx_orchestrator` - Sender for messages to the orchestrator
 /// * `rx_explorer` - Receiver for messages from explorers
+/// * `request_limit` - One of the available modes to limit resource generation requests done by
+///   explorers (see [ExplorerRequestLimit])
 ///
 /// # Returns
 /// /// A configured [`Planet`] instance ready to run.
@@ -49,7 +51,7 @@ use std::sync::mpsc;
 /// # Examples
 /// ```
 /// use std::sync::mpsc;
-/// use rustrelli::create_planet;
+/// use rustrelli::{create_planet, ExplorerRequestLimit};
 ///
 /// let (tx_orch_to_planet, rx_orch_to_planet) = mpsc::channel();
 /// let (tx_planet_to_orch, rx_planet_to_orch) = mpsc::channel();
@@ -59,15 +61,17 @@ use std::sync::mpsc;
 ///     rx_orch_to_planet,
 ///     tx_planet_to_orch,
 ///     rx_expl_to_planet,
+///     ExplorerRequestLimit::None
 /// );
 /// ```
 pub fn create_planet(
     rx_orchestrator: mpsc::Receiver<messages::OrchestratorToPlanet>,
     tx_orchestrator: mpsc::Sender<messages::PlanetToOrchestrator>,
     rx_explorer: mpsc::Receiver<messages::ExplorerToPlanet>,
+    request_limit: ExplorerRequestLimit
 ) -> Planet {
     let id = 1;
-    let ai = AI::new();
+    let ai = AI::new(request_limit);
     let gen_rules = vec![
         BasicResourceType::Carbon,
         BasicResourceType::Silicon,
@@ -89,6 +93,15 @@ pub fn create_planet(
         Ok(planet) => planet,
         Err(error) => panic!("{}", error),
     }
+}
+
+/// Available explorer limiting modes.
+pub enum ExplorerRequestLimit {
+    /// No limit to explorer requests.
+    None,
+    /// Tries to share energy cells usage equally between active explorers.
+    /// Uses an algorithm similar to [Token Bucket](https://en.wikipedia.org/wiki/Token_bucket).
+    FairShare
 }
 
 #[cfg(test)]
@@ -130,7 +143,7 @@ mod tests {
     #[test]
     fn test_planet_basic_configuration() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl);
+        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
 
         assert_eq!(planet.id(), 1, "Planet ID should be 1");
         assert_eq!(
@@ -147,7 +160,7 @@ mod tests {
     #[test]
     fn test_planet_generation_rules() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl);
+        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
         let recipes = planet.generator().all_available_recipes();
 
         assert_eq!(recipes.len(), 4, "Type D supports 4 basic resources");
@@ -174,7 +187,7 @@ mod tests {
     #[test]
     fn test_planet_combination_rules() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl);
+        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
         let recipes = planet.combinator().all_available_recipes();
 
         assert_eq!(
@@ -192,7 +205,7 @@ mod tests {
     #[test]
     fn test_planet_initial_state() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl);
+        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
 
         assert_eq!(planet.state().cells_count(), 5, "Type D has 5 energy cells");
         assert!(
