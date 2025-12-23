@@ -9,37 +9,41 @@
 
 use common_game::components::resource::BasicResourceType;
 use common_game::components::sunray::Sunray;
-use common_game::protocols::messages::{
-    ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
+use common_game::protocols::orchestrator_planet::{
+    PlanetToOrchestrator, OrchestratorToPlanet
+};
+use common_game::protocols::planet_explorer::{
+    PlanetToExplorer, ExplorerToPlanet
 };
 use rustrelli::{create_planet, ExplorerRequestLimit};
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-
+use crossbeam_channel::{unbounded, Receiver, Sender};
 // ============================================================================
 // Test Helpers
 // ============================================================================
 
+#[allow(clippy::type_complexity)]
 fn setup_test_planet() -> (
-    mpsc::Sender<OrchestratorToPlanet>,
-    mpsc::Receiver<PlanetToOrchestrator>,
-    mpsc::Sender<ExplorerToPlanet>,
-    thread::JoinHandle<()>,
+    Sender<OrchestratorToPlanet>,
+    Receiver<PlanetToOrchestrator>,
+    Sender<ExplorerToPlanet>,
+    thread::JoinHandle<Result<(), String>>,
 ) {
-    let (tx_orch_to_planet, rx_orch_to_planet) = mpsc::channel();
-    let (tx_planet_to_orch, rx_planet_to_orch) = mpsc::channel();
-    let (tx_expl_to_planet, rx_expl_to_planet) = mpsc::channel();
+    let (tx_orch_to_planet, rx_orch_to_planet) = unbounded();
+    let (tx_planet_to_orch, rx_planet_to_orch) = unbounded();
+    let (tx_expl_to_planet, rx_expl_to_planet) = unbounded();
 
     let mut planet = create_planet(rx_orch_to_planet, tx_planet_to_orch, rx_expl_to_planet, ExplorerRequestLimit::None);
 
     let handle = thread::spawn(move || {
-        let _ = planet.run();
+        planet.run()
     });
 
     tx_orch_to_planet
         .send(OrchestratorToPlanet::StartPlanetAI)
         .unwrap();
+    rx_planet_to_orch.recv().unwrap();
     thread::sleep(Duration::from_millis(50));
 
     (
@@ -52,14 +56,14 @@ fn setup_test_planet() -> (
 
 fn register_explorer(
     explorer_id: u32,
-    tx_orch: &mpsc::Sender<OrchestratorToPlanet>,
-    rx_orch: &mpsc::Receiver<PlanetToOrchestrator>,
-) -> mpsc::Receiver<PlanetToExplorer> {
-    let (tx_planet_to_expl, rx_planet_to_expl) = mpsc::channel();
+    tx_orch: &Sender<OrchestratorToPlanet>,
+    rx_orch: &Receiver<PlanetToOrchestrator>,
+) -> Receiver<PlanetToExplorer> {
+    let (tx_planet_to_expl, rx_planet_to_expl) = unbounded();
     tx_orch
         .send(OrchestratorToPlanet::IncomingExplorerRequest {
             explorer_id,
-            new_mpsc_sender: tx_planet_to_expl,
+            new_sender: tx_planet_to_expl,
         })
         .unwrap();
     let _ = rx_orch.recv_timeout(Duration::from_millis(200));
@@ -68,8 +72,8 @@ fn register_explorer(
 
 fn charge_cells(
     count: usize,
-    tx_orch: &mpsc::Sender<OrchestratorToPlanet>,
-    rx_orch: &mpsc::Receiver<PlanetToOrchestrator>,
+    tx_orch: &Sender<OrchestratorToPlanet>,
+    rx_orch: &Receiver<PlanetToOrchestrator>,
 ) {
     for _ in 0..count {
         tx_orch
@@ -93,7 +97,9 @@ fn test_internal_state_query() {
         .send(OrchestratorToPlanet::InternalStateRequest)
         .unwrap();
 
-    match rx_orch.recv_timeout(Duration::from_millis(200)) {
+    // handle.join().unwrap().unwrap();
+
+    match rx_orch.recv() {
         Ok(PlanetToOrchestrator::InternalStateResponse {
             planet_id,
             planet_state,
@@ -103,7 +109,7 @@ fn test_internal_state_query() {
             assert_eq!(planet_state.charged_cells_count, 0);
             assert!(!planet_state.has_rocket);
         }
-        _ => panic!("Expected InternalStateResponse"),
+        other => panic!("Expected InternalStateResponse, got {:?}", other),
     }
 }
 

@@ -6,12 +6,12 @@
 //!
 //! ## Example
 //! ```
-//! use std::sync::mpsc;
+//! use crossbeam_channel::{Receiver, Sender, bounded};
 //! use rustrelli::{create_planet, ExplorerRequestLimit};
 //!
-//! let (tx_orch, rx_orch) = mpsc::channel();
-//! let (tx_planet, rx_planet) = mpsc::channel();
-//! let (tx_expl, rx_expl) = mpsc::channel();
+//! let (tx_orch, rx_orch) = bounded(10);
+//! let (tx_planet, rx_planet) = bounded(10);
+//! let (tx_expl, rx_expl) = bounded(10);
 //!
 //! let planet = create_planet(rx_orch, tx_planet, rx_expl, ExplorerRequestLimit::None);
 //! ```
@@ -20,9 +20,10 @@ pub mod planet;
 
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::BasicResourceType;
-use common_game::protocols::messages;
+use common_game::protocols::*;
 use planet::AI;
-use std::sync::mpsc;
+
+use crossbeam_channel::{Receiver, Sender};
 
 /// Creates and configures a Type D planet.
 ///
@@ -50,12 +51,12 @@ use std::sync::mpsc;
 ///
 /// # Examples
 /// ```
-/// use std::sync::mpsc;
+/// use crossbeam_channel::{Receiver, Sender, bounded};
 /// use rustrelli::{create_planet, ExplorerRequestLimit};
 ///
-/// let (tx_orch_to_planet, rx_orch_to_planet) = mpsc::channel();
-/// let (tx_planet_to_orch, rx_planet_to_orch) = mpsc::channel();
-/// let (tx_expl_to_planet, rx_expl_to_planet) = mpsc::channel();
+/// let (tx_orch_to_planet, rx_orch_to_planet) = bounded(20);
+/// let (tx_planet_to_orch, rx_planet_to_orch) = bounded(20);
+/// let (tx_expl_to_planet, rx_expl_to_planet) = bounded(20);
 ///
 /// let planet = create_planet(
 ///     rx_orch_to_planet,
@@ -65,9 +66,9 @@ use std::sync::mpsc;
 /// );
 /// ```
 pub fn create_planet(
-    rx_orchestrator: mpsc::Receiver<messages::OrchestratorToPlanet>,
-    tx_orchestrator: mpsc::Sender<messages::PlanetToOrchestrator>,
-    rx_explorer: mpsc::Receiver<messages::ExplorerToPlanet>,
+    rx_orchestrator: Receiver<orchestrator_planet::OrchestratorToPlanet>,
+    tx_orchestrator: Sender<orchestrator_planet::PlanetToOrchestrator>,
+    rx_explorer: Receiver<planet_explorer::ExplorerToPlanet>,
     request_limit: ExplorerRequestLimit
 ) -> Planet {
     let id = 1;
@@ -112,21 +113,21 @@ mod tests {
     //! with the correct specifications. Unlike integration tests, these tests directly
     //! access planet internals without running the message-passing loop.
 
+    use crossbeam_channel::unbounded;
     use super::*;
-    use std::sync::mpsc;
 
     // ============================================================================
     // Test Helper
     // ============================================================================
 
     fn create_test_channels() -> (
-        mpsc::Receiver<messages::OrchestratorToPlanet>,
-        mpsc::Sender<messages::PlanetToOrchestrator>,
-        mpsc::Receiver<messages::ExplorerToPlanet>,
+        Receiver<orchestrator_planet::OrchestratorToPlanet>,
+        Sender<orchestrator_planet::PlanetToOrchestrator>,
+        Receiver<planet_explorer::ExplorerToPlanet>,
     ) {
-        let (_tx_orch_to_planet, rx_orch_to_planet) = mpsc::channel();
-        let (tx_planet_to_orch, _rx_planet_to_orch) = mpsc::channel();
-        let (_tx_expl_to_planet, rx_expl_to_planet) = mpsc::channel();
+        let (_tx_orch_to_planet, rx_orch_to_planet) = unbounded();
+        let (tx_planet_to_orch, _rx_planet_to_orch) = unbounded();
+        let (_tx_expl_to_planet, rx_expl_to_planet) = unbounded();
 
         (rx_orch_to_planet, tx_planet_to_orch, rx_expl_to_planet)
     }
