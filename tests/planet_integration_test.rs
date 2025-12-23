@@ -9,16 +9,12 @@
 
 use common_game::components::resource::BasicResourceType;
 use common_game::components::sunray::Sunray;
-use common_game::protocols::orchestrator_planet::{
-    PlanetToOrchestrator, OrchestratorToPlanet
-};
-use common_game::protocols::planet_explorer::{
-    PlanetToExplorer, ExplorerToPlanet
-};
-use rustrelli::{create_planet, ExplorerRequestLimit};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
+use crossbeam_channel::{Receiver, Sender, unbounded};
+use rustrelli::{ExplorerRequestLimit, create_planet};
 use std::thread;
 use std::time::Duration;
-use crossbeam_channel::{unbounded, Receiver, Sender};
 // ============================================================================
 // Test Helpers
 // ============================================================================
@@ -34,11 +30,14 @@ fn setup_test_planet() -> (
     let (tx_planet_to_orch, rx_planet_to_orch) = unbounded();
     let (tx_expl_to_planet, rx_expl_to_planet) = unbounded();
 
-    let mut planet = create_planet(rx_orch_to_planet, tx_planet_to_orch, rx_expl_to_planet, ExplorerRequestLimit::None);
+    let mut planet = create_planet(
+        rx_orch_to_planet,
+        tx_planet_to_orch,
+        rx_expl_to_planet,
+        ExplorerRequestLimit::None,
+    );
 
-    let handle = thread::spawn(move || {
-        planet.run()
-    });
+    let handle = thread::spawn(move || planet.run());
 
     tx_orch_to_planet
         .send(OrchestratorToPlanet::StartPlanetAI)

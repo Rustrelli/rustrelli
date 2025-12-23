@@ -179,7 +179,13 @@ impl AI {
 }
 
 impl PlanetAI for AI {
-    fn handle_sunray(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator, sunray: Sunray) {
+    fn handle_sunray(
+        &mut self,
+        state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+        sunray: Sunray,
+    ) {
         state.charge_cell(sunray);
     }
 
@@ -193,7 +199,12 @@ impl PlanetAI for AI {
         None
     }
 
-    fn handle_internal_state_req(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> DummyPlanetState {
+    fn handle_internal_state_req(
+        &mut self,
+        state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+    ) -> DummyPlanetState {
         state.to_dummy()
     }
 
@@ -225,8 +236,8 @@ impl PlanetAI for AI {
                     match self.limit_mode {
                         ExplorerRequestLimit::None => {
                             return Some(PlanetToExplorer::GenerateResourceResponse {
-                                resource: Some(make_basic_resource(resource, cell, generator))
-                            })
+                                resource: Some(make_basic_resource(resource, cell, generator)),
+                            });
                         }
                         ExplorerRequestLimit::FairShare => {}
                     }
