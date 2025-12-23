@@ -20,19 +20,18 @@
 //! - (TO BE DEFINED) Speculative resource generation to prevent sunray waste
 //!   (e.g. in place resource generation when all cells are currently full based on the most requested type of resource by explorers to preemptively help them)
 
+use crate::ExplorerRequestLimit;
 use common_game::components::energy_cell::EnergyCell;
-use common_game::components::planet::{PlanetAI, PlanetState};
+use common_game::components::planet::{DummyPlanetState, PlanetAI, PlanetState};
 use common_game::components::resource::{
     BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
     Generator, GenericResource,
 };
 use common_game::components::rocket::Rocket;
-use common_game::protocols::messages::{
-    ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
-};
+use common_game::components::sunray::Sunray;
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-use crate::ExplorerRequestLimit;
 // features:
 // - user of the planet can choose between: fair-share resource generation between explorers or
 //   explorers priority list to assign priority levels to each explorer -> planet tracks explorer requests to estimate resources usage
@@ -180,30 +179,22 @@ impl AI {
 }
 
 impl PlanetAI for AI {
-    fn handle_orchestrator_msg(
+    fn handle_sunray(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator, sunray: Sunray) {
+        state.charge_cell(sunray);
+    }
+
+    fn handle_asteroid(
         &mut self,
-        state: &mut PlanetState,
+        _state: &mut PlanetState,
         _generator: &Generator,
         _combinator: &Combinator,
-        msg: OrchestratorToPlanet,
-    ) -> Option<PlanetToOrchestrator> {
-        match msg {
-            OrchestratorToPlanet::Sunray(sunray) => {
-                state.charge_cell(sunray);
-                Some(PlanetToOrchestrator::SunrayAck {
-                    planet_id: state.id(),
-                })
-            }
+    ) -> Option<Rocket> {
+        // Type D planets cannot build rockets, so they will be destroyed by asteroids
+        None
+    }
 
-            OrchestratorToPlanet::InternalStateRequest => {
-                Some(PlanetToOrchestrator::InternalStateResponse {
-                    planet_id: state.id(),
-                    planet_state: state.to_dummy(),
-                })
-            }
-
-            _ => None,
-        }
+    fn handle_internal_state_req(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> DummyPlanetState {
+        state.to_dummy()
     }
 
     fn handle_explorer_msg(
@@ -300,26 +291,6 @@ impl PlanetAI for AI {
                 })
             }
         }
-    }
-
-    fn handle_asteroid(
-        &mut self,
-        _state: &mut PlanetState,
-        _generator: &Generator,
-        _combinator: &Combinator,
-    ) -> Option<Rocket> {
-        // Type D planets cannot build rockets, so they will be destroyed by asteroids
-        None
-    }
-
-    fn start(&mut self, _state: &PlanetState) {
-        // Planet AI startup logic
-        // Currently no initialization needed for Type D planet
-    }
-
-    fn stop(&mut self, _state: &PlanetState) {
-        // Planet AI shutdown logic
-        // Currently no cleanup needed for Type D planet
     }
 }
 
