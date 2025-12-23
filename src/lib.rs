@@ -69,7 +69,7 @@ pub fn create_planet(
     rx_orchestrator: Receiver<orchestrator_planet::OrchestratorToPlanet>,
     tx_orchestrator: Sender<orchestrator_planet::PlanetToOrchestrator>,
     rx_explorer: Receiver<planet_explorer::ExplorerToPlanet>,
-    request_limit: ExplorerRequestLimit
+    request_limit: ExplorerRequestLimit,
 ) -> Planet {
     let id = 1;
     let ai = AI::new(request_limit);
@@ -102,7 +102,7 @@ pub enum ExplorerRequestLimit {
     None,
     /// Tries to share energy cells usage equally between active explorers.
     /// Uses an algorithm similar to [Token Bucket](https://en.wikipedia.org/wiki/Token_bucket).
-    FairShare
+    FairShare,
 }
 
 #[cfg(test)]
@@ -113,8 +113,8 @@ mod tests {
     //! with the correct specifications. Unlike integration tests, these tests directly
     //! access planet internals without running the message-passing loop.
 
-    use crossbeam_channel::unbounded;
     use super::*;
+    use crossbeam_channel::unbounded;
 
     // ============================================================================
     // Test Helper
