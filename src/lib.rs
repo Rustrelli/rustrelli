@@ -13,7 +13,7 @@
 //! let (tx_planet, rx_planet) = bounded(10);
 //! let (tx_expl, rx_expl) = bounded(10);
 //!
-//! let planet = create_planet(rx_orch, tx_planet, rx_expl, ExplorerRequestLimit::None);
+//! let planet = create_planet(1, rx_orch, tx_planet, rx_expl, ExplorerRequestLimit::None);
 //! ```
 
 pub mod planet;
@@ -21,6 +21,7 @@ pub mod planet;
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::BasicResourceType;
 use common_game::protocols::*;
+use common_game::utils::ID;
 use planet::AI;
 
 use crossbeam_channel::{Receiver, Sender};
@@ -59,6 +60,7 @@ use crossbeam_channel::{Receiver, Sender};
 /// let (tx_expl_to_planet, rx_expl_to_planet) = bounded(20);
 ///
 /// let planet = create_planet(
+///     1,
 ///     rx_orch_to_planet,
 ///     tx_planet_to_orch,
 ///     rx_expl_to_planet,
@@ -66,12 +68,12 @@ use crossbeam_channel::{Receiver, Sender};
 /// );
 /// ```
 pub fn create_planet(
+    id: ID,
     rx_orchestrator: Receiver<orchestrator_planet::OrchestratorToPlanet>,
     tx_orchestrator: Sender<orchestrator_planet::PlanetToOrchestrator>,
     rx_explorer: Receiver<planet_explorer::ExplorerToPlanet>,
     request_limit: ExplorerRequestLimit,
 ) -> Planet {
-    let id = 1;
     let ai = AI::new(request_limit);
     let gen_rules = vec![
         BasicResourceType::Carbon,
@@ -144,7 +146,7 @@ mod tests {
     #[test]
     fn test_planet_basic_configuration() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
+        let planet = create_planet(1, rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
 
         assert_eq!(planet.id(), 1, "Planet ID should be 1");
         assert_eq!(
@@ -161,7 +163,7 @@ mod tests {
     #[test]
     fn test_planet_generation_rules() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
+        let planet = create_planet(1, rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
         let recipes = planet.generator().all_available_recipes();
 
         assert_eq!(recipes.len(), 4, "Type D supports 4 basic resources");
@@ -188,7 +190,7 @@ mod tests {
     #[test]
     fn test_planet_combination_rules() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
+        let planet = create_planet(1, rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
         let recipes = planet.combinator().all_available_recipes();
 
         assert_eq!(
@@ -206,7 +208,7 @@ mod tests {
     #[test]
     fn test_planet_initial_state() {
         let (rx_orch, tx_orch, rx_expl) = create_test_channels();
-        let planet = create_planet(rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
+        let planet = create_planet(1, rx_orch, tx_orch, rx_expl, ExplorerRequestLimit::None);
 
         assert_eq!(planet.state().cells_count(), 5, "Type D has 5 energy cells");
         assert!(

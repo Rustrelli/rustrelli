@@ -31,6 +31,7 @@ fn setup_test_planet() -> (
     let (tx_expl_to_planet, rx_expl_to_planet) = unbounded();
 
     let mut planet = create_planet(
+        1,
         rx_orch_to_planet,
         tx_planet_to_orch,
         rx_expl_to_planet,
